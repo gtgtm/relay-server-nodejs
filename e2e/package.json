@@ -1,0 +1,20 @@
+{
+  "name": "alfred-camera-e2e",
+  "version": "1.0.0",
+  "description": "Playwright E2E tests for Alfred Camera admin dashboard login flow",
+  "private": true,
+  "scripts": {
+    "install:browsers": "npx playwright install chromium",
+    "test": "npx playwright test --config=playwright.config.ts",
+    "test:headed": "npx playwright test --config=playwright.config.ts --headed",
+    "test:debug": "npx playwright test --config=playwright.config.ts --debug",
+    "test:api-only": "npx playwright test --config=playwright.config.ts --grep 'API connectivity'",
+    "test:ui-only": "npx playwright test --config=playwright.config.ts --grep 'Login page'",
+    "test:security": "npx playwright test --config=playwright.config.ts --grep 'security'",
+    "report": "npx playwright show-report ../test-results/playwright-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.44.0",
+    "@types/node": "^20.0.0"
+  }
+}

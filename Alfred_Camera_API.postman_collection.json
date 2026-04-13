@@ -1,0 +1,343 @@
+{
+  "info": {
+    "name": "Alfred Camera Relay API",
+    "description": "API collection for Alfred Camera Relay Server",
+    "version": "1.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "alfred_baby_monitor_2026",
+      "type": "string"
+    },
+    {
+      "key": "camera_id",
+      "value": "a1b2c3d4",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health & Status",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/health",
+              "host": ["{{base_url}}"],
+              "path": ["api", "health"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Camera Management",
+      "item": [
+        {
+          "name": "Register Camera",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Auth-Token",
+                "value": "{{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Bedroom Camera\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/camera/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "camera", "register"]
+            }
+          }
+        },
+        {
+          "name": "List Cameras",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Auth-Token",
+                "value": "{{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/cameras",
+              "host": ["{{base_url}}"],
+              "path": ["api", "cameras"]
+            }
+          }
+        },
+        {
+          "name": "Delete Camera",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "X-Auth-Token",
+                "value": "{{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/camera/{{camera_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "camera", "{{camera_id}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Video Streaming",
+      "item": [
+        {
+          "name": "Push Frame",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Auth-Token",
+                "value": "{{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "image/jpeg"
+              }
+            ],
+            "body": {
+              "mode": "file",
+              "file": {
+                "src": "test_frame.jpg"
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/camera/{{camera_id}}/frame",
+              "host": ["{{base_url}}"],
+              "path": ["api", "camera", "{{camera_id}}", "frame"]
+            }
+          }
+        },
+        {
+          "name": "Get MJPEG Stream",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Auth-Token",
+                "value": "{{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/stream/{{camera_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "stream", "{{camera_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Get Snapshot",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Auth-Token",
+                "value": "{{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/snapshot/{{camera_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "snapshot", "{{camera_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Update Stream Status",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Auth-Token",
+                "value": "{{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"streaming\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/camera/{{camera_id}}/status",
+              "host": ["{{base_url}}"],
+              "path": ["api", "camera", "{{camera_id}}", "status"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Audio Streaming",
+      "item": [
+        {
+          "name": "Push Camera Audio",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Auth-Token",
+                "value": "{{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/octet-stream"
+              }
+            ],
+            "body": {
+              "mode": "file",
+              "file": {
+                "src": "test_audio.raw"
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/camera/{{camera_id}}/audio",
+              "host": ["{{base_url}}"],
+              "path": ["api", "camera", "{{camera_id}}", "audio"]
+            }
+          }
+        },
+        {
+          "name": "Poll Camera Audio",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Auth-Token",
+                "value": "{{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/stream/{{camera_id}}/audio?since=-1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "stream", "{{camera_id}}", "audio"],
+              "query": [
+                {
+                  "key": "since",
+                  "value": "-1"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Push Talkback Audio",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Auth-Token",
+                "value": "{{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/octet-stream"
+              }
+            ],
+            "body": {
+              "mode": "file",
+              "file": {
+                "src": "test_talkback.raw"
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/camera/{{camera_id}}/talkback",
+              "host": ["{{base_url}}"],
+              "path": ["api", "camera", "{{camera_id}}", "talkback"]
+            }
+          }
+        },
+        {
+          "name": "Poll Talkback Audio",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Auth-Token",
+                "value": "{{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/camera/{{camera_id}}/talkback/poll?since=-1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "camera", "{{camera_id}}", "talkback", "poll"],
+              "query": [
+                {
+                  "key": "since",
+                  "value": "-1"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Legacy Endpoints",
+      "item": [
+        {
+          "name": "Start Stream (Legacy)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Auth-Token",
+                "value": "{{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/camera/{{camera_id}}/start",
+              "host": ["{{base_url}}"],
+              "path": ["api", "camera", "{{camera_id}}", "start"]
+            }
+          }
+        },
+        {
+          "name": "Stop Stream (Legacy)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Auth-Token",
+                "value": "{{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/camera/{{camera_id}}/stop",
+              "host": ["{{base_url}}"],
+              "path": ["api", "camera", "{{camera_id}}", "stop"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

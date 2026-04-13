@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: alfred-relay-db
+    environment:
+      POSTGRES_USER: alfred_user
+      POSTGRES_PASSWORD: alfred_password_change_me
+      POSTGRES_DB: alfred_relay
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U alfred_user']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  relay_server:
+    build: .
+    container_name: alfred-relay-server
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOST: 0.0.0.0
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: alfred_relay
+      DB_USER: alfred_user
+      DB_PASSWORD: alfred_password_change_me
+      JWT_SECRET: your_jwt_secret_change_in_production
+      AUTH_TOKEN: alfred_baby_monitor_2026
+      CORS_ORIGIN: '*'
+      LOG_LEVEL: info
+    ports:
+      - '3000:3000'
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

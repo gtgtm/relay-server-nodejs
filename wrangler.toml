@@ -1,0 +1,32 @@
+name = "relay-server"
+type = "javascript"
+account_id = "Gautam786hansh@gmail.com"
+workers_dev = true
+routes = [
+  { pattern = "example.com/*", zone_name = "example.com" }
+]
+main = "src/index.js"
+build = { command = "npm install" }
+
+# Environment configuration
+[env.production]
+name = "relay-server-production"
+routes = [
+  { pattern = "api.example.com/*", zone_name = "example.com" }
+]
+
+[env.development]
+name = "relay-server-development"
+workers_dev = true
+
+# Variables (set secrets in Cloudflare dashboard)
+[env.production.vars]
+NODE_ENV = "production"
+
+[env.development.vars]
+NODE_ENV = "development"
+
+# Secrets (use: wrangler secret put DATABASE_URL --env production)
+# DATABASE_URL
+# JWT_SECRET
+# RELAY_AUTH_TOKEN

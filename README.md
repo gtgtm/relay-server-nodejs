@@ -257,7 +257,38 @@ src/
 
 ## Deployment
 
-### Render.com (Recommended)
+### Cloudflare Workers (Recommended for Production)
+
+**Prerequisites:**
+- Cloudflare account with Workers enabled
+- Supabase PostgreSQL database
+- Wrangler CLI installed
+
+**1. Update wrangler.toml**
+```toml
+name = "relay-server"
+main = "src/index.js"
+account_id = "your-cloudflare-account-id"
+```
+
+**2. Set up Supabase Database**
+- Create Supabase project
+- Get connection string from Project Settings
+- Save as `DATABASE_URL` secret
+
+**3. Add Secrets to Cloudflare**
+```bash
+wrangler secret put DATABASE_URL --env production
+wrangler secret put JWT_SECRET --env production
+wrangler secret put RELAY_AUTH_TOKEN --env production
+```
+
+**4. Deploy**
+```bash
+npm run deploy:prod
+```
+
+### Alternative: Render.com
 ```bash
 git push render main
 ```
@@ -266,6 +297,12 @@ git push render main
 ```bash
 docker build -t relay-server .
 docker run -p 3000:3000 --env-file .env relay-server
+```
+
+### Railway.app (Quick Alternative)
+```bash
+railway link
+railway up
 ```
 
 ## Testing

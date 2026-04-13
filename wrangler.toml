@@ -1,12 +1,9 @@
 name = "relay-server"
 type = "javascript"
-account_id = "Gautam786hansh@gmail.com"
+account_id = "ba1078ad96746f2ac5ebaaa6210c92c8"  # Get from https://dash.cloudflare.com/ - Account Overview
 workers_dev = true
-routes = [
-  { pattern = "example.com/*", zone_name = "example.com" }
-]
 main = "src/index.js"
-build = { command = "npm install" }
+compatibility_date = "2024-04-13"
 
 # Environment configuration
 [env.production]

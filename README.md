@@ -1,381 +1,300 @@
-# Alfred Camera Relay Server (Node.js)
+# Relay Server - Node.js
 
-Production-ready Node.js relay server for Alfred Camera streaming with PostgreSQL backend, WebSocket support, and 100% API compatibility with the iOS client.
-
-## Features
-
-- **MJPEG Streaming**: Real-time video streaming from camera to viewer via HTTP
-- **Audio Relay**: Bidirectional audio (camera → viewer and talkback)
-- **Device Management**: Register, list, and manage camera/viewer devices
-- **Frame/Audio Buffering**: In-memory ring buffer for efficient streaming
-- **Activity Logging**: Track all operations for audit and debugging
-- **Metrics Collection**: Performance monitoring and analytics
-- **WebSocket Ready**: Socket.IO setup for real-time updates
-- **PostgreSQL Backend**: Persistent storage with Sequelize ORM
-- **Docker Support**: Production-ready Docker and docker-compose setup
-- **100% iOS Compatible**: Backward compatible with existing RelayServerManager
+A real-time video streaming relay server for the Alfred Camera app. Streams video frames and audio between camera devices and viewers over the internet.
 
 ## Quick Start
-
-### Prerequisites
-
-- Node.js 18+
-- PostgreSQL 13+
-- npm or yarn
-
-### Local Development
 
 ```bash
 # Install dependencies
 npm install
 
-# Setup environment
+# Set up environment
 cp .env.example .env
+# Edit .env with your configuration
 
-# Configure database connection in .env
-# Edit DB_HOST, DB_USER, DB_PASSWORD, DB_NAME
+# Run development server
+npm run dev
 
-# Run migrations
+# Run production server
+npm start
+
+# Run tests
+npm test
+```
+
+## Environment Variables
+
+```
+PORT=3000
+NODE_ENV=development
+DATABASE_URL=postgresql://user:password@localhost:5432/relay_db
+JWT_SECRET=your-secret-key
+RELAY_AUTH_TOKEN=your-relay-token
+```
+
+## Database Configuration (PostgreSQL)
+
+### Local Setup
+
+**1. Install PostgreSQL**
+```bash
+# macOS
+brew install postgresql
+
+# Start PostgreSQL service
+brew services start postgresql
+
+# Verify installation
+psql --version
+```
+
+**2. Create Database**
+```bash
+# Login to PostgreSQL
+psql postgres
+
+# Create database and user
+CREATE DATABASE relay_db;
+CREATE USER relay_user WITH PASSWORD 'relay_password';
+ALTER ROLE relay_user SET client_encoding TO 'utf8';
+ALTER ROLE relay_user SET default_transaction_isolation TO 'read committed';
+ALTER ROLE relay_user SET default_transaction_deferrable TO on;
+GRANT ALL PRIVILEGES ON DATABASE relay_db TO relay_user;
+\c relay_db
+GRANT ALL PRIVILEGES ON SCHEMA public TO relay_user;
+\q
+```
+
+**3. Set Environment Variables**
+```bash
+# .env file
+DATABASE_URL=postgresql://relay_user:relay_password@localhost:5432/relay_db
+```
+
+**4. Run Migrations**
+```bash
+# Create tables
 npm run migrate
 
 # Seed initial data (optional)
 npm run seed
-
-# Start development server
-npm run dev
 ```
 
-The server will start on `http://localhost:3000`
+### Production Setup (Cloudflare + Supabase)
 
-### Docker Setup
+**1. Create Supabase Project**
+- Go to [supabase.com](https://supabase.com)
+- Create new project
+- Copy the connection string from Project Settings → Database
+
+**2. Get Connection String**
+```
+postgresql://postgres.xxxxx:password@aws-0-region.pooler.supabase.com:6543/postgres
+```
+
+**3. Set Environment Variables in Cloudflare**
+```bash
+# In Cloudflare Workers → Settings → Variables
+DATABASE_URL=postgresql://postgres.xxxxx:password@aws-0-region.pooler.supabase.com:6543/postgres
+```
+
+**4. Deploy with Wrangler**
+```bash
+# Install wrangler
+npm install -g @cloudflare/wrangler
+
+# Create wrangler.toml
+[env.production]
+vars = { DATABASE_URL = "your-connection-string" }
+
+# Deploy
+wrangler deploy
+```
+
+### Alternative PostgreSQL Hosts
+
+**Neon**
+- Free tier available
+- Get connection string from Neon dashboard
+- Set `DATABASE_URL` environment variable
+
+**Railway**
+- Deploy PostgreSQL directly
+- Copy connection string automatically
+
+**Render**
+- PostgreSQL as a service
+- Easy integration with Cloudflare Workers
+
+### Verify Connection
 
 ```bash
-# Build and run with Docker Compose
-docker-compose up -d
+# Test database connection
+npm run test:db
 
-# Check logs
-docker-compose logs -f relay_server
-
-# Run migrations in container
-docker-compose exec relay_server npm run migrate
-
-# Seed database
-docker-compose exec relay_server npm run seed
+# Output should show:
+# ✓ Connected to relay_db
+# ✓ Tables created
 ```
+
+### Database Tables
+
+The server creates these tables automatically:
+
+```sql
+-- users table
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  email VARCHAR(255) UNIQUE NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- devices table
+CREATE TABLE devices (
+  id SERIAL PRIMARY KEY,
+  device_id UUID UNIQUE NOT NULL,
+  user_id INTEGER REFERENCES users(id),
+  name VARCHAR(255),
+  role VARCHAR(50),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- sessions table
+CREATE TABLE sessions (
+  id SERIAL PRIMARY KEY,
+  device_id UUID REFERENCES devices(device_id),
+  started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  ended_at TIMESTAMP
+);
+
+-- frames table (auto-cleanup after 5 seconds)
+CREATE TABLE frames (
+  id SERIAL PRIMARY KEY,
+  device_id UUID,
+  frame_data BYTEA,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- audio_buffer table
+CREATE TABLE audio_buffer (
+  id SERIAL PRIMARY KEY,
+  device_id UUID,
+  audio_data BYTEA,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### Connection Pooling
+
+Default pool settings (in `src/config.ts`):
+```typescript
+import { Pool } from 'pg';
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  max: 20, // Max connections
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000,
+});
+
+export default pool;
+```
+
+Adjust `max` based on Cloudflare Workers concurrency limits.
 
 ## API Endpoints
 
 ### Health Check
+- `GET /api/health` - Server health status
+
+### Camera Operations
+- `POST /api/camera/{id}/frame` - Upload video frame
+- `POST /api/camera/{id}/audio` - Upload audio chunk
+- `POST /api/camera/{id}/register` - Register camera device
+- `POST /api/camera/{id}/heartbeat` - Send heartbeat
+
+### Viewer Operations
+- `GET /api/stream/{id}` - Stream video frames (MJPEG)
+- `GET /api/audio/{id}` - Get audio buffer
+- `GET /api/devices` - List available devices
+
+### Authentication
+- `POST /api/auth/login` - User login
+- `POST /api/auth/signup` - User registration
+- `POST /api/auth/refresh` - Refresh JWT token
+
+## Architecture
 
 ```
-GET /api/health
+Camera Device → Relay Server ← Viewer Device
+  (upload)        (buffer)      (download)
+   frames     →   store    →    stream
+   audio      →   buffer   →    polling
 ```
 
-Response:
-```json
-{
-  "status": "ok",
-  "cameras": 5,
-  "node_version": "v18.x.x",
-  "uptime": 3600
-}
-```
+## Key Features
 
-### Camera Registration
+- **JWT Authentication** - Secure API access with token-based auth
+- **Frame Buffering** - Recent frames cached for new viewers
+- **Audio Relay** - Real-time audio streaming via HTTP polling
+- **Device Heartbeat** - 30-second keepalive for camera connections
+- **Database Persistence** - MySQL for device/user metadata
+- **CORS Enabled** - Support for cross-origin requests
 
-```
-POST /api/camera/register
-Header: X-Auth-Token: alfred_baby_monitor_2026
-Body: { "name": "Bedroom Camera" }
-```
-
-Response:
-```json
-{
-  "cameraId": "a1b2c3d4"
-}
-```
-
-### List Cameras
+## Directory Structure
 
 ```
-GET /api/cameras?token=alfred_baby_monitor_2026
-Header: X-Auth-Token: alfred_baby_monitor_2026
+src/
+├── controllers/    - Route handlers
+├── middleware/     - Auth, error handling
+├── models/        - Database models
+├── routes/        - API routes
+├── services/      - Business logic
+├── utils/         - Helper functions
+└── config.ts      - Configuration
 ```
 
-Response:
-```json
-{
-  "cameras": [
-    {
-      "cameraId": "a1b2c3d4",
-      "name": "Bedroom Camera",
-      "streamActive": true,
-      "lastSeen": 1704067200
-    }
-  ]
-}
+## Deployment
+
+### Render.com (Recommended)
+```bash
+git push render main
 ```
 
-### Stream Status
-
+### Docker
+```bash
+docker build -t relay-server .
+docker run -p 3000:3000 --env-file .env relay-server
 ```
-POST /api/camera/:cameraId/status
-Header: X-Auth-Token: alfred_baby_monitor_2026
-Body: { "streaming": true }
-```
-
-### Push Frame
-
-```
-POST /api/camera/:cameraId/frame
-Header: X-Auth-Token: alfred_baby_monitor_2026
-Header: Content-Type: image/jpeg
-Body: (raw JPEG data)
-```
-
-### MJPEG Stream
-
-```
-GET /api/stream/:cameraId?token=alfred_baby_monitor_2026
-```
-
-Returns multipart/x-mixed-replace stream of JPEG frames.
-
-### Push Audio
-
-```
-POST /api/camera/:cameraId/audio
-Header: X-Auth-Token: alfred_baby_monitor_2026
-Header: Content-Type: application/octet-stream
-Body: (raw audio data)
-```
-
-### Poll Audio
-
-```
-GET /api/stream/:cameraId/audio?token=alfred_baby_monitor_2026&since=-1
-```
-
-Response:
-```json
-{
-  "index": 5,
-  "audio": "base64_encoded_audio_data"
-}
-```
-
-### Talkback Audio
-
-```
-POST /api/camera/:cameraId/talkback
-Header: X-Auth-Token: alfred_baby_monitor_2026
-Body: (raw audio data)
-
-GET /api/camera/:cameraId/talkback/poll?token=alfred_baby_monitor_2026&since=-1
-```
-
-### Delete Camera
-
-```
-DELETE /api/camera/:cameraId
-Header: X-Auth-Token: alfred_baby_monitor_2026
-```
-
-## Configuration
-
-Environment variables in `.env`:
-
-```
-# Server
-NODE_ENV=production
-PORT=3000
-HOST=0.0.0.0
-
-# Database
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=alfred_relay
-DB_USER=alfred_user
-DB_PASSWORD=your_password
-
-# Authentication
-JWT_SECRET=your_jwt_secret
-AUTH_TOKEN=alfred_baby_monitor_2026
-
-# Streaming
-MAX_FRAME_SIZE=2097152
-MAX_AUDIO_CHUNK_SIZE=131072
-AUDIO_BUFFER_SIZE=20
-CAMERA_TIMEOUT=120
-
-# Logging
-LOG_LEVEL=info
-```
-
-## Database Schema
-
-### Users
-- `id` (UUID)
-- `email` (VARCHAR, unique)
-- `password` (hashed)
-- `name` (VARCHAR)
-- `role` (enum: admin, user)
-- `isActive` (BOOLEAN)
-- `lastLoginAt` (TIMESTAMP)
-
-### Devices
-- `id` (UUID)
-- `cameraId` (VARCHAR, legacy 8-char hex)
-- `userId` (UUID, foreign key)
-- `name` (VARCHAR)
-- `role` (enum: camera, viewer)
-- `isActive` (BOOLEAN)
-- `streamActive` (BOOLEAN)
-- `lastSeenAt` (TIMESTAMP)
-- `ipAddress` (VARCHAR)
-- `userAgent` (TEXT)
-- `metadata` (JSONB)
-
-### StreamingSessions
-- `id` (UUID)
-- `cameraDeviceId` (UUID, foreign key)
-- `viewerDeviceId` (UUID, foreign key)
-- `status` (enum: active, stopped, error)
-- `frameCount` (INTEGER)
-- `audioChunksCount` (INTEGER)
-- `totalBytesTransferred` (BIGINT)
-
-### Metrics
-- `id` (UUID)
-- `deviceId` (UUID, foreign key)
-- `metricType` (VARCHAR)
-- `value` (FLOAT)
-- `unit` (VARCHAR)
-- `timestamp` (TIMESTAMP)
-
-### ActivityLogs
-- `id` (UUID)
-- `userId` (UUID, foreign key)
-- `deviceId` (UUID, foreign key)
-- `action` (VARCHAR)
-- `status` (enum: success, failure, warning)
-- `ipAddress` (VARCHAR)
 
 ## Testing
 
 ```bash
-# Run all tests
-npm test
-
-# Run with coverage
-npm test -- --coverage
-
-# Watch mode
-npm run test:watch
+npm test                  # Run all tests
+npm run test:watch       # Watch mode
+npm run test:coverage    # Coverage report
 ```
 
-Target: **80%+ code coverage**
+## Performance
 
-## Logging
+- **Frame rate:** ~30 FPS
+- **Latency:** ~50-100ms (HTTP polling)
+- **Concurrent viewers:** ~50 per instance
+- **Frame buffer size:** Last 5 frames cached
 
-Logs are written to:
-- Console (development only)
-- `logs/error.log` - Error-level logs
-- `logs/combined.log` - All logs
+## Future Improvements
 
-## Performance Considerations
-
-### Frame Streaming
-- 10 FPS polling interval (100ms)
-- In-memory frame buffer per camera
-- Disk backup for persistence
-- 2MB maximum frame size
-
-### Audio Buffering
-- Ring buffer with configurable size (default 20 chunks)
-- Separate buffers for camera → viewer and talkback
-- Base64 encoding for JSON transport
-- Automatic cleanup on stale cameras
-
-### Database Indexes
-- `users(email)` for quick lookups
-- `devices(user_id, camera_id, role)` for filtering
-- `streaming_sessions(camera_device_id, status)` for active session tracking
-- `metrics(device_id, timestamp)` for analytics
-
-## Deployment
-
-### Using Docker Compose
-
-```bash
-docker-compose -f docker-compose.yml up -d
-```
-
-### Manual Deployment
-
-```bash
-# Install dependencies
-npm ci --production
-
-# Run migrations
-npm run migrate
-
-# Start with process manager (PM2 recommended)
-npm install -g pm2
-pm2 start src/index.js --name "alfred-relay"
-```
-
-### Environment Recommendations
-
-**Production:**
-- Set `NODE_ENV=production`
-- Change `JWT_SECRET` and `AUTH_TOKEN`
-- Use strong database password
-- Enable HTTPS in reverse proxy (nginx/HAProxy)
-- Set up proper monitoring and alerting
-
-## Troubleshooting
-
-### Database Connection Issues
-
-```bash
-# Test PostgreSQL connection
-psql -h localhost -U alfred_user -d alfred_relay
-```
-
-### Port Already in Use
-
-```bash
-# Check what's using port 3000
-lsof -i :3000
-
-# Kill process
-kill -9 <PID>
-```
-
-### Frame Not Showing
-
-1. Verify camera is registered: `GET /api/cameras`
-2. Check frame is being pushed: Monitor logs for "Frame pushed"
-3. Verify camera streaming status: `POST /api/camera/:cameraId/status`
-
-## iOS Client Configuration
-
-Update `RelayServerManager.swift`:
-
-```swift
-var serverURL = "https://your-relay-server.com"
-var authToken = "alfred_baby_monitor_2026"
-```
-
-## Contributing
-
-1. Create feature branch
-2. Follow coding standards (ESLint, Prettier)
-3. Write tests (80%+ coverage)
-4. Submit PR with test results
+- [ ] WebSocket support for lower latency
+- [ ] Redis for multi-instance coordination
+- [ ] Audio codec compression (Opus/AAC)
+- [ ] Automatic reconnection logic
+- [ ] Prometheus metrics integration
 
 ## License
 
 MIT
+
+## Support
+
+For issues, check logs or contact support.
